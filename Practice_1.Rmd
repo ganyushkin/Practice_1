@@ -1,0 +1,81 @@
+---
+title: "Лабораторная Работа №5"
+author: "Ганюшкин Александр"
+date: "13 04 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Вариант -- 5
+
+# Задание:
+
+С помощью пакета rvestили парсинга XMLс помощью xpath запросов соберите данные с сайта согласно своему варианту. В итоговой таблице должно быть не менее 50 записей и не менее 5 признаков, из которых как минимум два количественных. Снабдите файл справочником в формате Markdown.
+
+# Задание из варианта:
+
+Кинопоиск, рейтинг фильмов про зомби (https://www.kinopoisk.ru/lists/editorial/theme_zombie/).
+
+```{r, warning=F, message=F}
+library('XML')                 # разбор XML-файлов
+library('RCurl')               # работа с HTML-страницами
+library('rjson')               # чтение формата JSON
+library('rvest')               # работа с DOM сайта
+library('dplyr')               # инструменты трансформирования данных
+library('httr')
+library('stringr')
+
+# ссылка на сайт кинопоиска, рейтинг фильмов про зомби
+url <- 'https://www.kinopoisk.ru/lists/editorial/theme_zombie/'
+
+html <- GET(url)
+html <- content(html, 'text')
+
+parsed_html <- htmlParse(html, useInternalNodes = T, encoding = "UTF-8")
+
+# Названия фильмов на русском языке
+name.film <- xpathSApply(parsed_html, '//p[@class="selection-film-item-meta__name"]', xmlValue)
+name.film
+
+# Названия фильмов в оригинале
+original.name.film <- xpathSApply(parsed_html, '//p[@class="selection-film-item-meta__original-name"]', xmlValue)
+original.name.film
+
+# жанр фильмов
+genre.film <- xpathSApply(parsed_html, '//span[@class="selection-film-item-meta__meta-additional-item"]', xmlValue)
+genre.film
+
+# Рейтинг фильмов
+rating.film <- xpathSApply(parsed_html, '//span[@data-tid="59e7b831"]', xmlValue)
+rating.film <- as.numeric(rating.film)
+rating.film
+
+# Количество голосов
+vote.film <- xpathSApply(parsed_html, '//span[@class="rating__count"]', xmlValue)
+# Избавляемся от пробелов
+vote.film <- gsub(pattern = '\\s', replacement = "", x = vote.film)
+vote.film <- as.numeric(vote.film)
+vote.film
+
+# Формируем датафрейм
+df <- data.frame(name = name.film, original_name = original.name.film,
+                 genre = genre.film[c(F, T)], rating = rating.film[c(T, F)], vote = vote.film)
+
+data.dir <- './data'
+
+# Создаем директорию для данных
+if (!file.exists(data.dir)) {
+  dir.create(data.dir)
+}
+
+# Создаём файл с логом загрузок
+log.filename <- './data/download.log'
+if (!file.exists(log.filename)) file.create(log.filename)
+
+# Загружаем данные в .csv файл
+write.csv(df, file = './data/kinopoisk_zombie.csv', row.names = FALSE)
+write(paste('Файл "kinopoisk.csv" записан!', Sys.time()), file = log.filename, append = TRUE)
+```
